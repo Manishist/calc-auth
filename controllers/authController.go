@@ -3,21 +3,22 @@ package controllers
 import (
 	"go-auth/database"
 	"go-auth/models"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/gofiber/fiber/v3"
-	"golang.org/x/crypto/bcrypt"
 	"strconv"
 	"time"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const SecretKey = "secret"
 
-func Register(c fiber.Ctx) error {
+func Register(c *fiber.Ctx) error {
 	var data map[string]string
 
-	// if err := c.BodyParser(&data); err != nil {
-	// 	return err
-	// }
+	if err := c.BodyParser(&data); err != nil {
+		return err
+	}
 
 	password, _ := bcrypt.GenerateFromPassword([]byte(data["password"]), 14)
 
@@ -32,12 +33,12 @@ func Register(c fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func Login(c fiber.Ctx) error {
+func Login(c *fiber.Ctx) error {
 	var data map[string]string
 
-	// if err := c.BodyParser(&data); err != nil {
-	// 	return err
-	// }
+	if err := c.BodyParser(&data); err != nil {
+		return err
+	}
 
 	var user models.User
 
@@ -59,7 +60,7 @@ func Login(c fiber.Ctx) error {
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
 		Issuer:    strconv.Itoa(int(user.Id)),
-		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(), //1 day
+		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(), // 1 day
 	})
 
 	token, err := claims.SignedString([]byte(SecretKey))
@@ -81,11 +82,14 @@ func Login(c fiber.Ctx) error {
 	c.Cookie(&cookie)
 
 	return c.JSON(fiber.Map{
-		"message": "success",
+		"message":  "success",
+		"name":     user.Name,
+		"email":    user.Email,
+		"is_admin": user.IsAdmin,
 	})
 }
 
-func User(c fiber.Ctx) error {
+func User(c *fiber.Ctx) error {
 	cookie := c.Cookies("jwt")
 
 	token, err := jwt.ParseWithClaims(cookie, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
@@ -108,7 +112,7 @@ func User(c fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func Logout(c fiber.Ctx) error {
+func Logout(c *fiber.Ctx) error {
 	cookie := fiber.Cookie{
 		Name:     "jwt",
 		Value:    "",
