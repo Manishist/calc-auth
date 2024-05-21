@@ -1,4 +1,3 @@
-// controllers/project_controller.go
 package controllers
 
 import (
@@ -46,12 +45,10 @@ func CreateProject(c *fiber.Ctx) error {
 }
 
 func GetUserProjects(c *fiber.Ctx) error {
-	// Define a struct to parse the request body
 	type UserEmailPayload struct {
 		UserEmail string `json:"user_email"`
 	}
 
-	// Parse the request body into the UserEmailPayload struct
 	payload := new(UserEmailPayload)
 	if err := c.BodyParser(payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -59,7 +56,6 @@ func GetUserProjects(c *fiber.Ctx) error {
 		})
 	}
 
-	// Retrieve project names from the database based on the user email
 	var projectNames []string
 	if err := database.DB.Model(&models.Data{}).
 		Where("user_email = ?", payload.UserEmail).
@@ -71,7 +67,6 @@ func GetUserProjects(c *fiber.Ctx) error {
 		})
 	}
 
-	// Return the project names as JSON response
 	return c.JSON(fiber.Map{
 		"projects": projectNames,
 	})
@@ -117,13 +112,11 @@ func UpdateProjectHistory(c *fiber.Ctx) error {
 		})
 	}
 
-	// Create a map to keep track of unique history entries
 	historySet := make(map[string]bool)
 	for _, entry := range project.History {
 		historySet[entry] = true
 	}
 
-	// Append new history items if they are not already present
 	for _, newEntry := range payload.History {
 		if !historySet[newEntry] {
 			project.History = append(project.History, newEntry)
