@@ -60,7 +60,7 @@ func Login(c *fiber.Ctx) error {
 
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
 		Issuer:    strconv.Itoa(int(user.Id)),
-		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(), // 1 day
+		ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 	})
 
 	token, err := claims.SignedString([]byte(SecretKey))
@@ -72,7 +72,6 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Record the login time, reset TotalTimeToday if it's a new day, and update LoggedInDaysLast7Days
 	now := time.Now()
 	if user.LastLoginDate == nil || !sameDay(now, *user.LastLoginDate) {
 		user.TotalTimeToday = 0
@@ -99,18 +98,15 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
-// Helper function to calculate the number of days logged in over the last 7 days
 func calculateLoggedInDaysLast7Days(user *models.User) uint64 {
-	// If LastLoginDate is nil, return 0
+
 	if user.LastLoginDate == nil {
 		return 0
 	}
 
-	// Initialize count and start date
 	count := uint64(0)
 	startDate := time.Now().AddDate(0, 0, -6)
 
-	// Iterate over the last 7 days and count the days user has logged in
 	for i := 0; i < 7; i++ {
 		date := startDate.AddDate(0, 0, i)
 		if sameDay(*user.LastLoginDate, date) {
@@ -121,7 +117,6 @@ func calculateLoggedInDaysLast7Days(user *models.User) uint64 {
 	return count
 }
 
-// Helper function to check if two times are on the same day
 func sameDay(t1, t2 time.Time) bool {
 	y1, m1, d1 := t1.Date()
 	y2, m2, d2 := t2.Date()
@@ -171,7 +166,6 @@ func Logout(c *fiber.Ctx) error {
 
 	database.DB.Where("id = ?", claims.Issuer).First(&user)
 
-	// Calculate the total time consumed and update TotalTimeToday if LastLogin is not nil
 	if user.LastLogin != nil {
 		duration := time.Since(*user.LastLogin)
 		minutes := uint64(duration.Minutes())
@@ -185,7 +179,6 @@ func Logout(c *fiber.Ctx) error {
 		database.DB.Save(&user)
 	}
 
-	// Create and set an expired JWT cookie
 	expiredCookie := fiber.Cookie{
 		Name:     "jwt",
 		Value:    "",
