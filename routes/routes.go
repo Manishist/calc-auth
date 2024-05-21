@@ -16,4 +16,6 @@ func Setup(app *fiber.App) {
 	app.Post("/api/user-projects", controllers.GetUserProjects)
 	app.Post("/api/project-history", controllers.GetProjectHistory)
 	app.Put("/api/update-project-history", controllers.UpdateProjectHistory)
+
+	app.Post("/api/user-info", controllers.GetUserInfo)
 }

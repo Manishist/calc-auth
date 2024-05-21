@@ -72,6 +72,16 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
+	// Record the login time, reset TotalTimeToday if it's a new day, and update LoggedInDaysLast7Days
+	now := time.Now()
+	if user.LastLoginDate == nil || !sameDay(now, *user.LastLoginDate) {
+		user.TotalTimeToday = 0
+	}
+	user.LastLogin = &now
+	user.LastLoginDate = &now
+	user.LoggedInDaysLast7Days = calculateLoggedInDaysLast7Days(&user)
+	database.DB.Save(&user)
+
 	cookie := fiber.Cookie{
 		Name:     "jwt",
 		Value:    token,
@@ -87,6 +97,35 @@ func Login(c *fiber.Ctx) error {
 		"email":    user.Email,
 		"is_admin": user.IsAdmin,
 	})
+}
+
+// Helper function to calculate the number of days logged in over the last 7 days
+func calculateLoggedInDaysLast7Days(user *models.User) uint64 {
+	// If LastLoginDate is nil, return 0
+	if user.LastLoginDate == nil {
+		return 0
+	}
+
+	// Initialize count and start date
+	count := uint64(0)
+	startDate := time.Now().AddDate(0, 0, -6)
+
+	// Iterate over the last 7 days and count the days user has logged in
+	for i := 0; i < 7; i++ {
+		date := startDate.AddDate(0, 0, i)
+		if sameDay(*user.LastLoginDate, date) {
+			count++
+		}
+	}
+
+	return count
+}
+
+// Helper function to check if two times are on the same day
+func sameDay(t1, t2 time.Time) bool {
+	y1, m1, d1 := t1.Date()
+	y2, m2, d2 := t2.Date()
+	return y1 == y2 && m1 == m2 && d1 == d2
 }
 
 func User(c *fiber.Ctx) error {
@@ -113,14 +152,48 @@ func User(c *fiber.Ctx) error {
 }
 
 func Logout(c *fiber.Ctx) error {
-	cookie := fiber.Cookie{
+	cookie := c.Cookies("jwt")
+
+	token, err := jwt.ParseWithClaims(cookie, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SecretKey), nil
+	})
+
+	if err != nil {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "unauthenticated",
+		})
+	}
+
+	claims := token.Claims.(*jwt.StandardClaims)
+
+	var user models.User
+
+	database.DB.Where("id = ?", claims.Issuer).First(&user)
+
+	// Calculate the total time consumed and update TotalTimeToday if LastLogin is not nil
+	if user.LastLogin != nil {
+		duration := time.Since(*user.LastLogin)
+		minutes := uint64(duration.Minutes())
+		user.TotalTimeConsumed += minutes
+		if sameDay(time.Now(), *user.LastLoginDate) {
+			user.TotalTimeToday += minutes
+		} else {
+			user.TotalTimeToday = minutes
+		}
+		user.LastLogin = nil
+		database.DB.Save(&user)
+	}
+
+	// Create and set an expired JWT cookie
+	expiredCookie := fiber.Cookie{
 		Name:     "jwt",
 		Value:    "",
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
 	}
 
-	c.Cookie(&cookie)
+	c.Cookie(&expiredCookie)
 
 	return c.JSON(fiber.Map{
 		"message": "success",
